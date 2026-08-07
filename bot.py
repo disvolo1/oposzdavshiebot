@@ -92,7 +92,7 @@ async def start_handler(
 
     await message.answer(
         "🏓 Привет!\n\n"
-        "Это бот для опоздавших участников PinkTablet.\n\n"
+        "Это бот для опаздывающих на турниры пингтаблет.\n\n"
         "Если ты опаздываешь на турнир — нажми кнопку:",
         reply_markup=keyboard
     )
@@ -100,7 +100,7 @@ async def start_handler(
 
 
 # ==========================
-# НАЖАЛИ Я ОПАЗДЫВАЮ
+# Я ОПАЗДЫВАЮ
 # ==========================
 
 @dp.callback_query(
@@ -146,8 +146,7 @@ async def late_handler(
             [
                 InlineKeyboardButton(
                     text=(
-                        f"🕒 {tournament['time']} • "
-                        f"{title}"
+                        f"🕒 {tournament['time']} • {title}"
                     )[:60],
                     callback_data=f"tour_{index}"
                 )
@@ -179,12 +178,12 @@ async def tournament_selected(
     await callback.answer()
 
 
-    # удаляем кнопки турниров
-
     try:
+
         await callback.message.delete()
 
     except Exception:
+
         pass
 
 
@@ -206,7 +205,7 @@ async def tournament_selected(
 
 
     print(
-        "ВЫБРАН:",
+        "ВЫБРАН ТУРНИР:",
         tournament_name
     )
 
@@ -244,11 +243,10 @@ async def nickname_handler(
     state: FSMContext
 ):
 
-
     data = await state.get_data()
 
 
-    # удаляем сообщение "напишите ник"
+    # удаляем "Напишите свой ник"
 
     try:
 
@@ -265,7 +263,7 @@ async def nickname_handler(
 
 
 
-    # удаляем сообщение пользователя
+    # удаляем ник пользователя
 
     try:
 
@@ -297,6 +295,7 @@ async def nickname_handler(
         "ТУРНИР:",
         tournament
     )
+
 
 
     try:
@@ -350,7 +349,7 @@ async def nickname_handler(
 
 
                 print(
-                    "ОБНОВИЛ СООБЩЕНИЕ"
+                    "СООБЩЕНИЕ ОБНОВЛЕНО"
                 )
 
 
@@ -379,9 +378,18 @@ async def nickname_handler(
 
 
             print(
-                "СОЗДАЛ СООБЩЕНИЕ:",
+                "СООБЩЕНИЕ СОЗДАНО:",
                 msg.message_id
             )
+
+
+
+        # ответ пользователю
+
+        await message.answer(
+            "✅ Спасибо!\n\n"
+            "Организаторы получили информацию 🙌"
+        )
 
 
 
