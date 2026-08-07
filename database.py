@@ -10,7 +10,7 @@ key = os.getenv("SUPABASE_KEY")
 supabase: Client = create_client(url, key)
 
 
-async def save_late_request(
+async def save_late_requests(
     user_id: int,
     username: str,
     text: str
