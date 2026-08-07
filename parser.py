@@ -8,8 +8,6 @@ from zoneinfo import ZoneInfo
 
 POST_URL = "https://t.me/s/pingtablet/3977"
 
-MOSCOW_TZ = ZoneInfo("Europe/Moscow")
-
 
 MONTHS = {
     "января": 1,
@@ -27,21 +25,18 @@ MONTHS = {
 }
 
 
+# Москва
+MOSCOW_TZ = ZoneInfo("Europe/Moscow")
+
+
 def clean_text(text):
     """
-    Убираем невидимые символы Telegram
-    и лишние пробелы.
+    Убираем невидимые символы Telegram.
     """
 
     text = re.sub(
         r"[\u200b\u200c\u200d\u2060\ufeff]",
         "",
-        text
-    )
-
-    text = re.sub(
-        r"\s+",
-        " ",
         text
     )
 
@@ -78,245 +73,230 @@ def load_post():
         )
 
     return post.get_text(
-        "\n",
-        strip=True
+        "\n"
     )
 
 
 def parse_tournaments():
 
-    raw_text = load_post()
-
-    print("========== НАШ ПОСТ ==========")
-    print(raw_text)
-    print("========== КОНЕЦ ==========")
+    text = load_post()
 
 
-    # ----------------------------------
-    # Нормализуем переносы
-    # ----------------------------------
+    print(
+        "========== НАШ ПОСТ =========="
+    )
 
-    text = raw_text
+    print(text)
 
-    text = re.sub(
-        r"[\u200b\u200c\u200d\u2060\ufeff]",
-        "",
-        text
+    print(
+        "========== КОНЕЦ =========="
     )
 
 
-    # ----------------------------------
-    # Удаляем служебные строки
-    # ----------------------------------
+    # --------------------------------
+    # Чистим строки
+    # --------------------------------
 
-    text = re.sub(
-        r"(?im)^.*календарь событий:.*$",
-        "",
-        text
-    )
+    lines = []
 
+    for raw_line in text.split("\n"):
 
-    # ----------------------------------
-    # Находим даты
-    #
-    # 7 августа
-    # 8 августа
-    # 9 августа
-    # ----------------------------------
+        line = clean_text(raw_line)
 
-    date_pattern = re.compile(
-        r"(?<!\d)(\d{1,2})\s+"
-        r"(января|февраля|марта|апреля|мая|июня|"
-        r"июля|августа|сентября|октября|ноября|декабря)"
-        r"(?![а-яё])",
-        re.IGNORECASE
-    )
+        if line:
 
-
-    dates = list(
-        date_pattern.finditer(text)
-    )
+            lines.append(line)
 
 
     tournaments = []
 
 
-    # ----------------------------------
-    # Обрабатываем каждый блок даты
-    # ----------------------------------
-
-    for i, date_match in enumerate(dates):
-
-        day = int(
-            date_match.group(1)
-        )
-
-        month_name = (
-            date_match.group(2)
-            .lower()
-        )
-
-        month = MONTHS.get(
-            month_name
-        )
-
-        if not month:
-            continue
+    current_day = None
+    current_month = None
 
 
-        # Начало блока
+    # --------------------------------
+    # Парсим пост построчно
+    # --------------------------------
 
-        block_start = (
-            date_match.end()
+    for line in lines:
+
+        # -----------------------------
+        # Дата
+        # -----------------------------
+
+        date_match = re.match(
+            r"^\*?\*?\s*(\d{1,2})\s+([а-яё]+)",
+            line.lower()
         )
 
 
-        # Конец блока —
-        # следующая дата
+        if date_match:
 
-        if i + 1 < len(dates):
-
-            block_end = (
-                dates[i + 1].start()
+            current_day = int(
+                date_match.group(1)
             )
 
-        else:
-
-            block_end = len(text)
-
-
-        block = text[
-            block_start:block_end
-        ]
-
-
-        print(
-            f"========== БЛОК {day} {month_name} =========="
-        )
-
-        print(block)
-
-
-        # ----------------------------------
-        # Разбираем турниры
-        #
-        # Ищем время:
-        #
-        # 17:00
-        # • 17:00
-        # ----------------------------------
-
-        time_matches = list(
-            re.finditer(
-                r"(?<!\d)(\d{1,2}:\d{2})(?!\d)",
-                block
+            month_name = (
+                date_match.group(2)
+                .lower()
             )
-        )
 
 
-        for j, time_match in enumerate(
-            time_matches
-        ):
+            if month_name in MONTHS:
 
-            time = time_match.group(1)
-
-
-            # Начало описания
-
-            start = time_match.end()
-
-
-            # До следующего времени
-
-            if j + 1 < len(time_matches):
-
-                end = (
-                    time_matches[j + 1].start()
-                )
+                current_month = MONTHS[
+                    month_name
+                ]
 
             else:
 
-                end = len(block)
+                current_day = None
+                current_month = None
 
 
-            description = block[
-                start:end
-            ]
+            continue
 
 
-            description = clean_text(
-                description
+        # Если дату ещё не нашли,
+        # строку пропускаем
+
+        if current_day is None:
+
+            continue
+
+
+        # -----------------------------
+        # Время
+        # -----------------------------
+
+        time_match = re.search(
+            r"(\d{1,2}:\d{2})",
+            line
+        )
+
+
+        if not time_match:
+
+            continue
+
+
+        time = time_match.group(1)
+
+
+        # -----------------------------
+        # Получаем текст после времени
+        # -----------------------------
+
+        title = line[
+            time_match.end():
+        ].strip()
+
+
+        # Убираем маркеры
+
+        title = re.sub(
+            r"^[•\-–—\s]+",
+            "",
+            title
+        )
+
+
+        title = clean_text(
+            title
+        )
+
+
+        # -----------------------------
+        # Если после времени ничего нет,
+        # берём следующую строку
+        # -----------------------------
+
+        if not title:
+
+            index = lines.index(
+                line
             )
 
 
-            # ----------------------------------
-            # Убираем мусор
-            # ----------------------------------
+            if index + 1 < len(lines):
 
-            description = re.sub(
-                r"^[•\-–—\s]+",
-                "",
-                description
+                next_line = lines[
+                    index + 1
+                ]
+
+
+                # Если следующая строка
+                # не новая дата и не новый турнир
+
+                if (
+                    not re.match(
+                        r"^\d{1,2}\s+[а-яё]+",
+                        next_line.lower()
+                    )
+                    and
+                    not re.search(
+                        r"\d{1,2}:\d{2}",
+                        next_line
+                    )
+                ):
+
+                    title = next_line
+
+
+        # -----------------------------
+        # Если название начинается
+        # со слова "турнир" на следующей
+        # строке — добавляем её
+        # -----------------------------
+
+        index = lines.index(
+            line
+        )
+
+
+        if (
+            index + 1 < len(lines)
+            and
+            "турнир" in lines[index + 1].lower()
+            and
+            "турнир" not in title.lower()
+        ):
+
+            title = (
+                title
+                + " "
+                + lines[index + 1]
             )
 
 
-            description = clean_text(
-                description
-            )
+        title = clean_text(
+            title
+        )
 
 
-            # ----------------------------------
-            # Иногда перед названием
-            # находится лишняя точка/маркер
-            # ----------------------------------
+        # -----------------------------
+        # Сохраняем
+        # -----------------------------
 
-            description = description.strip(
-                "•-–—: "
-            )
+        if title:
 
+            tournaments.append({
 
-            description = clean_text(
-                description
-            )
+                "day": current_day,
 
+                "month": current_month,
 
-            if not description:
-                continue
-
-
-            # ----------------------------------
-            # Пропускаем служебный мусор
-            # ----------------------------------
-
-            if description.lower() in [
-                "календарь событий",
-                "лайв",
-                "лагерь",
-                "чат",
-                "мерч",
-                "связаться",
-                "посотрудничать",
-            ]:
-
-                continue
-
-
-            tournament = {
-                "day": day,
-                "month": month,
                 "time": time,
-                "title": description
-            }
+
+                "title": title
+
+            })
 
 
-            tournaments.append(
-                tournament
-            )
-
-
-    # ----------------------------------
+    # --------------------------------
     # Удаляем дубликаты
-    # ----------------------------------
+    # --------------------------------
 
     unique = []
 
@@ -333,15 +313,13 @@ def parse_tournaments():
         )
 
 
-        if key in seen:
-            continue
+        if key not in seen:
 
+            seen.add(key)
 
-        seen.add(key)
-
-        unique.append(
-            tournament
-        )
+            unique.append(
+                tournament
+            )
 
 
     print(
@@ -361,12 +339,12 @@ def parse_tournaments():
 
 def today_tournaments():
 
-    # ==================================
+    # =================================
     # ВАЖНО:
-    # ВСЕГДА МОСКОВСКОЕ ВРЕМЯ
-    # ==================================
+    # берём дату именно Москвы
+    # =================================
 
-    now = datetime.now(
+    today = datetime.now(
         MOSCOW_TZ
     )
 
@@ -376,25 +354,33 @@ def today_tournaments():
     )
 
     print(
-        "Москва:",
-        now.strftime(
-            "%d.%m.%Y %H:%M"
+        "Московское время:",
+        today.strftime(
+            "%d.%m.%Y %H:%M:%S"
         )
     )
 
+    print(
+        "Московская дата:",
+        today.day,
+        today.month
+    )
 
-    tournaments = parse_tournaments()
+
+    all_tournaments = (
+        parse_tournaments()
+    )
 
 
     result = []
 
 
-    for tournament in tournaments:
+    for tournament in all_tournaments:
 
         if (
-            tournament["day"] == now.day
+            tournament["day"] == today.day
             and
-            tournament["month"] == now.month
+            tournament["month"] == today.month
         ):
 
             result.append(
