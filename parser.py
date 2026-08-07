@@ -32,80 +32,42 @@ def load_post():
     }
 
 
-    response = requests.get(
+    html = requests.get(
         POST_URL,
         headers=headers,
-        timeout=15
-    )
-
-
-    response.raise_for_status()
+        timeout=20
+    ).text
 
 
     soup = BeautifulSoup(
-        response.text,
+        html,
         "html.parser"
     )
 
 
-    messages = soup.find_all(
+    post = soup.find(
         "div",
-        class_="tgme_widget_message"
+        class_="tgme_widget_message_text"
     )
 
 
-    for message in messages:
-
-        data_post = message.get(
-            "data-post"
+    if not post:
+        raise Exception(
+            "Текст поста не найден"
         )
 
 
-        if data_post and data_post.endswith("/3977"):
-
-            text_block = message.find(
-                "div",
-                class_="tgme_widget_message_text"
-            )
-
-
-            if not text_block:
-                raise Exception(
-                    "Текст поста не найден"
-                )
-
-
-            text = text_block.get_text(
-                "\n"
-            )
-
-
-            print(
-                "========== ТЕКСТ ПОСТА =========="
-            )
-
-            print(text)
-
-            print(
-                "========== КОНЕЦ =========="
-            )
-
-
-            return text
-
-
-    raise Exception(
-        "Пост 3977 не найден"
-    )
+    return post.get_text("\n")
 
 
 
-def clean_line(line):
+def clean(line):
 
     return (
         line
         .replace("**", "")
         .replace("\xa0", " ")
+        .replace("•", "")
         .strip()
     )
 
@@ -117,80 +79,102 @@ def parse_tournaments():
 
 
     lines = [
-        clean_line(line)
-        for line in text.split("\n")
-        if line.strip()
+        clean(x)
+        for x in text.split("\n")
+        if clean(x)
     ]
 
 
     tournaments = []
 
-
     current_day = None
     current_month = None
+
+    current_time = None
+    current_title = []
+
+
+    def save_current():
+
+        nonlocal current_time, current_title
+
+        if current_time and current_title:
+
+            tournaments.append(
+                {
+                    "day": current_day,
+                    "month": current_month,
+                    "time": current_time,
+                    "title": " ".join(current_title)
+                }
+            )
+
+
+        current_time = None
+        current_title = []
+
 
 
     for line in lines:
 
 
         # дата
-        date_match = re.match(
+
+        date = re.match(
             r"(\d+)\s+([а-яА-Я]+)",
-            line
+            line.lower()
         )
 
 
-        if date_match:
+        if date:
+
+            save_current()
+
 
             current_day = int(
-                date_match.group(1)
+                date.group(1)
             )
 
 
-            month_name = (
-                date_match.group(2)
-                .lower()
+            current_month = MONTHS.get(
+                date.group(2)
             )
-
-
-            if month_name in MONTHS:
-
-                current_month = MONTHS[
-                    month_name
-                ]
 
 
             continue
 
 
 
-        # турнир
-        tournament_match = re.match(
-            r"(\d{2}:\d{2})\s+(.*)",
+        # время
+
+        time = re.match(
+            r"(\d{1,2}:\d{2})",
             line
         )
 
 
-        if tournament_match and current_day:
+        if time:
+
+            save_current()
 
 
-            tournaments.append(
-                {
-                    "day": current_day,
-                    "month": current_month,
-                    "time": tournament_match.group(1),
-                    "title": tournament_match.group(2)
-                }
+            current_time = time.group(1)
+
+
+            continue
+
+
+
+        # текст турнира
+
+        if current_time:
+
+            current_title.append(
+                line
             )
 
 
-    print(
-        "========== ВСЕ ТУРНИРЫ =========="
-    )
-
-
-    for tournament in tournaments:
-        print(tournament)
+    save_current()
 
 
     return tournaments
@@ -207,7 +191,6 @@ def today_tournaments():
 
     for tournament in parse_tournaments():
 
-
         if (
             tournament["day"] == today.day
             and
@@ -220,10 +203,9 @@ def today_tournaments():
 
 
     print(
-        "========== СЕГОДНЯ =========="
+        "Сегодняшние:",
+        result
     )
-
-    print(result)
 
 
     return result
@@ -232,4 +214,6 @@ def today_tournaments():
 
 if __name__ == "__main__":
 
-    today_tournaments()
+    for t in today_tournaments():
+
+        print(t)
