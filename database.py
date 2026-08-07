@@ -1,13 +1,6 @@
-import os
-from dotenv import load_dotenv
 from supabase import create_client, Client
 
-
-load_dotenv()
-
-
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+from config import SUPABASE_URL, SUPABASE_KEY
 
 
 supabase: Client = create_client(
@@ -22,9 +15,6 @@ def save_late_request(
     name: str,
     message: str
 ):
-    """
-    Сохраняем заявку об опоздании
-    """
 
     data = {
         "telegram_id": telegram_id,
@@ -33,6 +23,7 @@ def save_late_request(
         "message": message
     }
 
+
     response = (
         supabase
         .table("late_requests")
@@ -40,21 +31,5 @@ def save_late_request(
         .execute()
     )
 
-    return response.data
-
-
-def get_active_tournament():
-    """
-    Получаем текущий турнир
-    """
-
-    response = (
-        supabase
-        .table("tournaments")
-        .select("*")
-        .eq("status", "active")
-        .limit(1)
-        .execute()
-    )
 
     return response.data
