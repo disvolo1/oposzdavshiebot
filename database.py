@@ -1,11 +1,13 @@
 import os
-from supabase import create_client
 from dotenv import load_dotenv
+from supabase import create_client
 
 load_dotenv()
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+
+print("SUPABASE URL:", SUPABASE_URL)
 
 supabase = create_client(
     SUPABASE_URL,
@@ -21,12 +23,15 @@ async def save_late_request(user_id, username, text):
         "text": text
     }
 
+    print("SENDING:", data)
+
     result = (
         supabase
-        .schema("public")
         .table("late_requests")
         .insert(data)
         .execute()
     )
+
+    print("RESULT:", result)
 
     return result
