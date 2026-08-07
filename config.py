@@ -1,13 +1,17 @@
-import os
-from dotenv import load_dotenv
+# Telegram Bot Token
+BOT_TOKEN = 8979509523:AAH0uIxjn_tIQr4vh8QRdcMtrtYuf54Aoxc
 
-load_dotenv()
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "")
+# Telegram ID администраторов
+# Можно добавить несколько через запятую
+
 ADMIN_IDS = [
-    int(x) for x in os.getenv("ADMIN_IDS", "").split(",")
-    if x.strip()
+    128835770
 ]
 
-DB_PATH = "data/bot.db"
-TIMEZONE = "Europe/Moscow"
+
+# Supabase настройки
+
+SUPABASE_URL = https://idpfheoemuuhvgnskvrw.supabase.co/rest/v1/
+
+SUPABASE_KEY = sb_publishable_2rmkvWG8fhogriidjxd9iw_N76mWg62
