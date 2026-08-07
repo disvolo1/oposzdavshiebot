@@ -24,6 +24,7 @@ MONTHS = {
 }
 
 
+
 def load_post():
 
     headers = {
@@ -31,40 +32,71 @@ def load_post():
     }
 
 
-    html = requests.get(
+    response = requests.get(
         POST_URL,
         headers=headers,
         timeout=15
-    ).text
+    )
+
+
+    response.raise_for_status()
 
 
     soup = BeautifulSoup(
-        html,
+        response.text,
         "html.parser"
     )
 
 
-    post = soup.find(
+    messages = soup.find_all(
         "div",
-        class_="tgme_widget_message_text"
+        class_="tgme_widget_message"
     )
 
 
-    if not post:
-        raise Exception(
-            "Пост не найден"
+    for message in messages:
+
+        data_post = message.get(
+            "data-post"
         )
 
 
-    text = post.get_text("\n")
+        if data_post and data_post.endswith("/3977"):
+
+            text_block = message.find(
+                "div",
+                class_="tgme_widget_message_text"
+            )
 
 
-    print("========== ТЕКСТ ПОСТА ==========")
-    print(text)
-    print("========== КОНЕЦ ==========")
+            if not text_block:
+                raise Exception(
+                    "Текст поста не найден"
+                )
 
 
-    return text
+            text = text_block.get_text(
+                "\n"
+            )
+
+
+            print(
+                "========== ТЕКСТ ПОСТА =========="
+            )
+
+            print(text)
+
+            print(
+                "========== КОНЕЦ =========="
+            )
+
+
+            return text
+
+
+    raise Exception(
+        "Пост 3977 не найден"
+    )
 
 
 
@@ -73,6 +105,7 @@ def clean_line(line):
     return (
         line
         .replace("**", "")
+        .replace("\xa0", " ")
         .strip()
     )
 
@@ -90,15 +123,8 @@ def parse_tournaments():
     ]
 
 
-    print("========== СТРОКИ ==========")
-
-    for line in lines:
-        print(repr(line))
-
-    print("========== КОНЕЦ СТРОК ==========")
-
-
     tournaments = []
+
 
     current_day = None
     current_month = None
@@ -107,6 +133,7 @@ def parse_tournaments():
     for line in lines:
 
 
+        # дата
         date_match = re.match(
             r"(\d+)\s+([а-яА-Я]+)",
             line
@@ -119,21 +146,25 @@ def parse_tournaments():
                 date_match.group(1)
             )
 
-            month = (
+
+            month_name = (
                 date_match.group(2)
                 .lower()
             )
 
 
-            if month in MONTHS:
+            if month_name in MONTHS:
 
-                current_month = MONTHS[month]
+                current_month = MONTHS[
+                    month_name
+                ]
 
 
             continue
 
 
 
+        # турнир
         tournament_match = re.match(
             r"(\d{2}:\d{2})\s+(.*)",
             line
@@ -153,12 +184,13 @@ def parse_tournaments():
             )
 
 
-    print("========== НАЙДЕНО ==========")
+    print(
+        "========== ВСЕ ТУРНИРЫ =========="
+    )
+
 
     for tournament in tournaments:
         print(tournament)
-
-    print("=============================")
 
 
     return tournaments
@@ -170,17 +202,11 @@ def today_tournaments():
     today = datetime.now()
 
 
-    print(
-        "Сегодня:",
-        today.day,
-        today.month
-    )
-
-
     result = []
 
 
     for tournament in parse_tournaments():
+
 
         if (
             tournament["day"] == today.day
@@ -194,9 +220,10 @@ def today_tournaments():
 
 
     print(
-        "Сегодняшние турниры:",
-        result
+        "========== СЕГОДНЯ =========="
     )
+
+    print(result)
 
 
     return result
