@@ -10,6 +10,7 @@ from aiogram.types import (
     InlineKeyboardMarkup,
     InlineKeyboardButton
 )
+
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import (
     State,
@@ -52,7 +53,7 @@ class LateState(StatesGroup):
 
 
 # ==========================
-# CLEAN
+# CLEAN TEXT
 # ==========================
 
 def clean_text(text):
@@ -100,7 +101,7 @@ async def start_handler(
 
 
 # ==========================
-# Я ОПАЗДЫВАЮ
+# КНОПКА ОПОЗДАЮ
 # ==========================
 
 @dp.callback_query(
@@ -114,12 +115,6 @@ async def late_handler(
 
 
     tournaments = today_tournaments()
-
-
-    print(
-        "ТУРНИРЫ:",
-        tournaments
-    )
 
 
     if not tournaments:
@@ -179,10 +174,8 @@ async def tournament_selected(
 
 
     try:
-
         await callback.message.delete()
-
-    except Exception:
+    except:
 
         pass
 
@@ -232,7 +225,7 @@ async def tournament_selected(
 
 
 # ==========================
-# НИК
+# ПОЛУЧЕНИЕ НИКА
 # ==========================
 
 @dp.message(
@@ -257,25 +250,25 @@ async def nickname_handler(
             )
         )
 
-    except Exception:
+    except:
 
         pass
 
 
 
-    # удаляем ник пользователя
+    # удаляем сообщение игрока
 
     try:
 
         await message.delete()
 
-    except Exception:
+    except:
 
         pass
 
 
 
-    username = clean_text(
+    nickname = clean_text(
         message.text
     )
 
@@ -287,7 +280,7 @@ async def nickname_handler(
 
     print(
         "НИК:",
-        username
+        nickname
     )
 
 
@@ -297,13 +290,12 @@ async def nickname_handler(
     )
 
 
-
     try:
 
 
         await save_late_request(
             user_id=message.from_user.id,
-            username=username,
+            username=nickname,
             tournament=tournament
         )
 
@@ -322,10 +314,13 @@ async def nickname_handler(
         )
 
 
+
         for user in users:
 
             admin_text += (
-                f"{user}\n"
+                f'<a href="tg://user?id={user["user_id"]}">'
+                f'{user["username"]}'
+                f'</a>\n'
             )
 
 
@@ -344,19 +339,20 @@ async def nickname_handler(
                 await bot.edit_message_text(
                     chat_id=ADMIN_ID,
                     message_id=old_message_id,
-                    text=admin_text
+                    text=admin_text,
+                    parse_mode="HTML"
                 )
 
 
                 print(
-                    "СООБЩЕНИЕ ОБНОВЛЕНО"
+                    "АДМИН СООБЩЕНИЕ ОБНОВЛЕНО"
                 )
 
 
             except Exception as e:
 
                 print(
-                    "ОШИБКА ОБНОВЛЕНИЯ:",
+                    "ОШИБКА UPDATE:",
                     e
                 )
 
@@ -367,7 +363,8 @@ async def nickname_handler(
 
             msg = await bot.send_message(
                 chat_id=ADMIN_ID,
-                text=admin_text
+                text=admin_text,
+                parse_mode="HTML"
             )
 
 
@@ -378,19 +375,16 @@ async def nickname_handler(
 
 
             print(
-                "СООБЩЕНИЕ СОЗДАНО:",
+                "АДМИН СООБЩЕНИЕ СОЗДАНО:",
                 msg.message_id
             )
 
 
 
-        # ответ пользователю
-
         await message.answer(
             "✅ Спасибо!\n\n"
             "Организаторы получили информацию 🙌"
         )
-
 
 
         await state.clear()
