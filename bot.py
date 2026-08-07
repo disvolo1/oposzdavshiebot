@@ -1,26 +1,30 @@
 import asyncio
+import os
+from dotenv import load_dotenv
 
 from aiogram import Bot, Dispatcher, types
-from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart
 
-from config import BOT_TOKEN
 from database import save_late_request
 
 
+load_dotenv()
+
+
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+
+
 bot = Bot(
-    token=BOT_TOKEN,
-    default=DefaultBotProperties(
-        parse_mode=ParseMode.HTML
-    )
+    token=BOT_TOKEN
 )
 
 dp = Dispatcher()
 
 
+# Стартовое сообщение
 @dp.message(CommandStart())
 async def start_handler(message: types.Message):
+
     await message.answer(
         "👋 Привет!\n\n"
         "Это бот для опоздавших участников.\n\n"
@@ -32,29 +36,44 @@ async def start_handler(message: types.Message):
     )
 
 
+# Получение заявки
 @dp.message()
 async def late_request_handler(message: types.Message):
+
     user_id = message.from_user.id
-    username = message.from_user.username
+
+    username = (
+        message.from_user.username
+        if message.from_user.username
+        else "без_username"
+    )
+
     text = message.text
+
 
     await save_late_request(
         user_id=user_id,
         username=username,
-        message=text
+        text=text
     )
+
 
     await message.answer(
-        "✅ Информация отправлена организатору.\n"
-        "Если что-то изменится — напиши ещё одним сообщением."
+        "✅ Спасибо!\n\n"
+        "Информация передана организатору."
     )
 
 
+# Запуск
 async def main():
-    print("Bot started")
 
-    await dp.start_polling(bot)
+    print("🤖 Bot started")
+
+    await dp.start_polling(
+        bot
+    )
 
 
 if __name__ == "__main__":
+
     asyncio.run(main())
