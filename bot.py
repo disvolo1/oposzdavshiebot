@@ -1,140 +1,60 @@
 import asyncio
 
-from aiogram import Bot, Dispatcher, F
-from aiogram.types import Message
+from aiogram import Bot, Dispatcher, types
+from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.filters import CommandStart
 
-from config import BOT_TOKEN, ADMIN_IDS
+from config import BOT_TOKEN
 from database import save_late_request
 
 
 bot = Bot(
     token=BOT_TOKEN,
-    parse_mode=ParseMode.HTML
+    default=DefaultBotProperties(
+        parse_mode=ParseMode.HTML
+    )
 )
-
 
 dp = Dispatcher()
 
 
-START_TEXT = """
-🏓 <b>PinkTablet</b>
-
-Это бот для опоздавших игроков.
-
-Если ты опаздываешь на турнир — напиши:
-
-• сколько минут задерживаешься
-• причину
-
-Например:
-<i>Буду через 10 минут, пробки</i>
-"""
-
-
-@dp.message(F.text == "/start")
-async def start(message: Message):
-
+@dp.message(CommandStart())
+async def start_handler(message: types.Message):
     await message.answer(
-        START_TEXT
+        "👋 Привет!\n\n"
+        "Это бот для опоздавших участников.\n\n"
+        "Если ты опоздал на турнир — напиши сюда:\n"
+        "• имя\n"
+        "• на какой турнир\n"
+        "• сколько опаздываешь\n\n"
+        "Мы передадим информацию организатору."
     )
 
 
 @dp.message()
-async def late_request(message: Message):
+async def late_request_handler(message: types.Message):
+    user_id = message.from_user.id
+    username = message.from_user.username
+    text = message.text
 
-    if message.from_user.is_bot:
-        return
-
-
-    username = (
-        f"@{message.from_user.username}"
-        if message.from_user.username
-        else "нет username"
+    await save_late_request(
+        user_id=user_id,
+        username=username,
+        message=text
     )
-
-
-    name = message.from_user.full_name
-
-
-    text = (
-        message.text
-        if message.text
-        else "медиа-сообщение"
-    )
-
-
-    try:
-
-        save_late_request(
-            telegram_id=message.from_user.id,
-            username=username,
-            name=name,
-            message=text
-        )
-
-
-    except Exception as e:
-
-        print(
-            "Database error:",
-            e
-        )
-
-
-    admin_text = f"""
-🚨 <b>ОПОЗДАНИЕ</b>
-
-👤 Игрок:
-{name}
-
-📱 Telegram:
-{username}
-
-🆔 ID:
-{message.from_user.id}
-
-💬 Сообщение:
-{text}
-"""
-
-
-    for admin_id in ADMIN_IDS:
-
-        try:
-
-            await bot.send_message(
-                admin_id,
-                admin_text
-            )
-
-        except Exception as e:
-
-            print(
-                "Admin error:",
-                e
-            )
-
 
     await message.answer(
-        "✅ Организатор получил уведомление.\n"
-        "Ожидай решения 🏓"
+        "✅ Информация отправлена организатору.\n"
+        "Если что-то изменится — напиши ещё одним сообщением."
     )
-
 
 
 async def main():
+    print("Bot started")
 
-    print(
-        "PinkTablet late bot started"
-    )
-
-
-    await dp.start_polling(
-        bot
-    )
+    await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
-
     asyncio.run(main())
