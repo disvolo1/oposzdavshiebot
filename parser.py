@@ -24,23 +24,22 @@ MONTHS = {
 }
 
 
-
 def load_post():
 
     headers = {
         "User-Agent": "Mozilla/5.0"
     }
 
-
-    html = requests.get(
+    response = requests.get(
         POST_URL,
         headers=headers,
-        timeout=20
-    ).text
+        timeout=15
+    )
 
+    response.raise_for_status()
 
     soup = BeautifulSoup(
-        html,
+        response.text,
         "html.parser"
     )
 
@@ -53,7 +52,7 @@ def load_post():
 
     if not post:
         raise Exception(
-            "Текст поста не найден"
+            "Пост не найден"
         )
 
 
@@ -61,13 +60,12 @@ def load_post():
 
 
 
-def clean(line):
+def clean_line(line):
 
     return (
         line
         .replace("**", "")
         .replace("\xa0", " ")
-        .replace("•", "")
         .strip()
     )
 
@@ -79,57 +77,36 @@ def parse_tournaments():
 
 
     lines = [
-        clean(x)
-        for x in text.split("\n")
-        if clean(x)
+        clean_line(line)
+        for line in text.split("\n")
+        if clean_line(line)
     ]
 
 
     tournaments = []
 
+
     current_day = None
     current_month = None
 
-    current_time = None
-    current_title = []
+
+    i = 0
 
 
-    def save_current():
+    while i < len(lines):
 
-        nonlocal current_time, current_title
-
-        if current_time and current_title:
-
-            tournaments.append(
-                {
-                    "day": current_day,
-                    "month": current_month,
-                    "time": current_time,
-                    "title": " ".join(current_title)
-                }
-            )
-
-
-        current_time = None
-        current_title = []
-
-
-
-    for line in lines:
+        line = lines[i]
 
 
         # дата
 
         date = re.match(
             r"(\d+)\s+([а-яА-Я]+)",
-            line.lower()
+            line
         )
 
 
         if date:
-
-            save_current()
-
 
             current_day = int(
                 date.group(1)
@@ -137,44 +114,50 @@ def parse_tournaments():
 
 
             current_month = MONTHS.get(
-                date.group(2)
+                date.group(2).lower()
             )
 
 
+            i += 1
             continue
 
 
 
-        # время
+        # турнир
 
-        time = re.match(
-            r"(\d{1,2}:\d{2})",
+        tournament = re.match(
+            r"•\s*(\d{1,2}:\d{2})\s+(.*)",
             line
         )
 
 
-        if time:
-
-            save_current()
+        if tournament and current_day:
 
 
-            current_time = time.group(1)
+            time = tournament.group(1)
+
+            title = tournament.group(2)
 
 
-            continue
-
-
-
-        # текст турнира
-
-        if current_time:
-
-            current_title.append(
-                line
+            # убираем markdown ссылки
+            title = re.sub(
+                r"\[([^\]]+)\]\([^)]+\)",
+                r"\1",
+                title
             )
 
 
-    save_current()
+            tournaments.append(
+                {
+                    "day": current_day,
+                    "month": current_month,
+                    "time": time,
+                    "title": title
+                }
+            )
+
+
+        i += 1
 
 
     return tournaments
@@ -215,5 +198,4 @@ def today_tournaments():
 if __name__ == "__main__":
 
     for t in today_tournaments():
-
         print(t)
