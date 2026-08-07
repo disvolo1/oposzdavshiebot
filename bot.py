@@ -1,20 +1,12 @@
-import os
 import asyncio
-from dotenv import load_dotenv
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message
 from aiogram.enums import ParseMode
 
-load_dotenv()
+from config import BOT_TOKEN, ADMIN_IDS
+from supabase import save_late_request
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-
-ADMIN_IDS = [
-    int(x)
-    for x in os.getenv("ADMIN_IDS", "").split(",")
-    if x.strip()
-]
 
 bot = Bot(
     token=BOT_TOKEN,
@@ -25,69 +17,109 @@ dp = Dispatcher()
 
 
 START_TEXT = """
-Привет! 👋
+🏓 <b>PinkTablet</b>
 
-Это бот для опоздавших игроков PinkTablet.
+Это бот для опоздавших игроков.
 
-Если ты опаздываешь на турнир — напиши сюда:
+Если ты опаздываешь на турнир — отправь сообщение:
 
-• имя и фамилию
-• на сколько минут опаздываешь
-• причину (по желанию)
+Например:
+<i>Буду через 10 минут, пробки</i>
 
-Администратор получит сообщение и решит вопрос с твоим участием.
+Администратор получит уведомление и решит вопрос с твоим участием.
 """
 
 
 @dp.message(F.text == "/start")
 async def start(message: Message):
-    await message.answer(START_TEXT)
+
+    await message.answer(
+        START_TEXT
+    )
 
 
 @dp.message()
-async def handle_late_player(message: Message):
+async def late_request(message: Message):
 
     if message.from_user.is_bot:
         return
 
+
     username = (
         f"@{message.from_user.username}"
         if message.from_user.username
-        else "без username"
+        else "нет username"
     )
 
-    text = f"""
-🚨 <b>Игрок опаздывает</b>
+    name = message.from_user.full_name
 
-👤 Игрок: {message.from_user.full_name}
-🔗 Username: {username}
-🆔 ID: {message.from_user.id}
+    text = message.text or "Отправлено медиа"
 
-Сообщение:
-{message.text or "медиа-сообщение"}
+
+    # сохраняем в Supabase
+    try:
+        save_late_request(
+            telegram_id=message.from_user.id,
+            username=username,
+            name=name,
+            message=text
+        )
+
+    except Exception as e:
+        print(
+            "Supabase error:",
+            e
+        )
+
+
+    admin_message = f"""
+🚨 <b>НОВОЕ ОПОЗДАНИЕ</b>
+
+👤 Игрок:
+{name}
+
+📱 Telegram:
+{username}
+
+🆔 ID:
+{message.from_user.id}
+
+💬 Сообщение:
+{text}
 """
 
+
+    # отправляем администраторам
     for admin_id in ADMIN_IDS:
+
         try:
             await bot.send_message(
                 admin_id,
-                text
-            )
-        except Exception as e:
-            print(
-                f"Ошибка отправки админу {admin_id}: {e}"
+                admin_message
             )
 
+        except Exception as e:
+            print(
+                "Admin send error:",
+                e
+            )
+
+
     await message.answer(
-        "✅ Сообщение отправлено администратору.\n"
-        "Ожидай решения по турниру."
+        "✅ Сообщение отправлено организаторам.\n"
+        "Ожидай решения по турниру 🏓"
     )
 
 
 async def main():
-    print("Late player bot started")
 
-    await dp.start_polling(bot)
+    print(
+        "PinkTablet late bot started"
+    )
+
+    await dp.start_polling(
+        bot
+    )
 
 
 if __name__ == "__main__":
