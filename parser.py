@@ -1,88 +1,96 @@
 import re
-from datetime import datetime
-
 import requests
 from bs4 import BeautifulSoup
+from datetime import datetime
 
-
-POST_URL = "https://t.me/pingtablet/3977"
-
+POST_URL = "https://t.me/s/pingtablet/3977"
 
 MONTHS = {
-    1: "января",
-    2: "февраля",
-    3: "марта",
-    4: "апреля",
-    5: "мая",
-    6: "июня",
-    7: "июля",
-    8: "августа",
-    9: "сентября",
-    10: "октября",
-    11: "ноября",
-    12: "декабря",
+    "января": 1,
+    "февраля": 2,
+    "марта": 3,
+    "апреля": 4,
+    "мая": 5,
+    "июня": 6,
+    "июля": 7,
+    "августа": 8,
+    "сентября": 9,
+    "октября": 10,
+    "ноября": 11,
+    "декабря": 12,
 }
 
 
-def get_post_text() -> str:
+def load_post():
     headers = {
-        "User-Agent": (
-            "Mozilla/5.0 "
-            "(Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 "
-            "(KHTML, like Gecko) "
-            "Chrome/137.0 Safari/537.36"
-        )
+        "User-Agent": "Mozilla/5.0"
     }
 
     html = requests.get(POST_URL, headers=headers, timeout=15).text
 
     soup = BeautifulSoup(html, "html.parser")
 
-    message = soup.select_one(".tgme_widget_message_text")
+    post = soup.find("div", class_="tgme_widget_message_text")
 
-    if message is None:
-        raise Exception("Не удалось получить текст сообщения Telegram")
+    if not post:
+        raise Exception("Не удалось получить текст поста")
 
-    return message.get_text("\n")
+    return post.get_text("\n")
 
 
-def get_today_tournaments():
-    text = get_post_text()
+def parse_tournaments():
 
-    today = datetime.now()
+    text = load_post()
 
-    today_header = f"{today.day} {MONTHS[today.month]}"
+    lines = [i.strip() for i in text.split("\n") if i.strip()]
 
-    lines = text.splitlines()
-
-    collecting = False
     tournaments = []
 
+    current_day = None
+    current_month = None
+
     for line in lines:
-        line = line.strip()
 
-        if not line:
+        m = re.match(r"(\d+)\s+([а-я]+)", line.lower())
+
+        if m:
+
+            current_day = int(m.group(1))
+            current_month = MONTHS[m.group(2)]
+
             continue
 
-        if today_header in line.lower():
-            collecting = True
-            continue
+        t = re.match(r"(\d\d:\d\d)\s+(.*)", line)
 
-        if collecting and re.match(r"^\d+\s+[а-я]+$", line.lower()):
-            break
+        if t and current_day:
 
-        if collecting:
-            m = re.match(r"(\d\d:\d\d)\s+(.*)", line)
-
-            if m:
-                tournaments.append({
-                    "time": m.group(1),
-                    "title": m.group(2)
-                })
+            tournaments.append({
+                "day": current_day,
+                "month": current_month,
+                "time": t.group(1),
+                "title": t.group(2)
+            })
 
     return tournaments
 
 
+def today_tournaments():
+
+    today = datetime.now()
+
+    result = []
+
+    for t in parse_tournaments():
+
+        if t["day"] == today.day and t["month"] == today.month:
+
+            result.append(t)
+
+    return result
+
+
 if __name__ == "__main__":
-    print(get_today_tournaments())
+
+    for t in today_tournaments():
+
+        print(f'{t["time"]} — {t["title"]}')
