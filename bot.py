@@ -20,6 +20,13 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
 
+if not BOT_TOKEN:
+    raise ValueError("BOT_TOKEN не найден")
+
+if not ADMIN_ID:
+    raise ValueError("ADMIN_ID не найден")
+
+
 bot = Bot(
     token=BOT_TOKEN
 )
@@ -30,9 +37,10 @@ dp = Dispatcher(
 )
 
 
-# Состояния
+# Состояния пользователя
 
 class LateForm(StatesGroup):
+    waiting_tournament = State()
     waiting_nickname = State()
 
 
@@ -66,7 +74,10 @@ async def start_handler(message: types.Message):
 # Кнопка "Я опаздываю"
 
 @dp.callback_query(lambda c: c.data == "late")
-async def late_handler(callback: types.CallbackQuery):
+async def late_handler(
+    callback: types.CallbackQuery,
+    state: FSMContext
+):
 
     tournaments = today_tournaments()
 
@@ -77,7 +88,14 @@ async def late_handler(callback: types.CallbackQuery):
             "Сегодня турниров не найдено 🙁"
         )
 
+        await callback.answer()
+
         return
+
+
+    await state.update_data(
+        tournaments=tournaments
+    )
 
 
     buttons = []
@@ -106,7 +124,9 @@ async def late_handler(callback: types.CallbackQuery):
     )
 
 
-    callback.message.bot.tournaments = tournaments
+    await state.set_state(
+        LateForm.waiting_tournament
+    )
 
 
     await callback.answer()
@@ -128,7 +148,24 @@ async def tournament_selected(
     )
 
 
-    tournaments = callback.message.bot.tournaments
+    data = await state.get_data()
+
+    tournaments = data.get(
+        "tournaments",
+        []
+    )
+
+
+    if index >= len(tournaments):
+
+        await callback.message.answer(
+            "Ошибка выбора турнира"
+        )
+
+        await callback.answer()
+
+        return
+
 
     tournament = tournaments[index]
 
@@ -154,7 +191,9 @@ async def tournament_selected(
 
 # Получение ника
 
-@dp.message(LateForm.waiting_nickname)
+@dp.message(
+    LateForm.waiting_nickname
+)
 async def nickname_handler(
     message: types.Message,
     state: FSMContext
@@ -168,11 +207,22 @@ async def nickname_handler(
     nickname = message.text
 
 
+    username = (
+        f"@{message.from_user.username}"
+        if message.from_user.username
+        else "без username"
+    )
+
+
     await bot.send_message(
         ADMIN_ID,
-        "🚨 Опоздание\n\n"
-        f"🏓 {tournament['time']} — {tournament['title']}\n\n"
-        f"👤 {nickname}"
+        "🚨 Новый запрос на опоздание\n\n"
+        f"🏓 Турнир:\n"
+        f"{tournament['time']} — {tournament['title']}\n\n"
+        f"👤 Ник:\n"
+        f"{nickname}\n\n"
+        f"Telegram:\n"
+        f"{username}"
     )
 
 
@@ -190,7 +240,9 @@ async def nickname_handler(
 
 async def main():
 
-    print("🤖 PinkTablet Late Bot started")
+    print(
+        "🤖 PinkTablet Late Bot started"
+    )
 
     await dp.start_polling(bot)
 
