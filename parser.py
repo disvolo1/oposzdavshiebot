@@ -24,11 +24,13 @@ MONTHS = {
 }
 
 
+
 def load_post():
 
     headers = {
         "User-Agent": "Mozilla/5.0"
     }
+
 
     response = requests.get(
         POST_URL,
@@ -36,7 +38,9 @@ def load_post():
         timeout=15
     )
 
+
     response.raise_for_status()
+
 
     soup = BeautifulSoup(
         response.text,
@@ -44,19 +48,74 @@ def load_post():
     )
 
 
-    post = soup.find(
+    messages = soup.find_all(
         "div",
-        class_="tgme_widget_message_text"
+        class_="tgme_widget_message"
     )
 
 
-    if not post:
-        raise Exception(
-            "Пост не найден"
+    print(
+        "Сообщений найдено:",
+        len(messages)
+    )
+
+
+    for message in messages:
+
+        data_post = message.get(
+            "data-post"
         )
 
 
-    return post.get_text("\n")
+        print(
+            "POST:",
+            data_post
+        )
+
+
+        if (
+            data_post
+            and
+            data_post.endswith("/3977")
+        ):
+
+
+            text_block = message.find(
+                "div",
+                class_="tgme_widget_message_text"
+            )
+
+
+            if not text_block:
+
+                raise Exception(
+                    "Текст поста не найден"
+                )
+
+
+            text = text_block.get_text(
+                "\n"
+            )
+
+
+            print(
+                "========== НАШ ПОСТ =========="
+            )
+
+            print(text)
+
+            print(
+                "========== КОНЕЦ =========="
+            )
+
+
+            return text
+
+
+
+    raise Exception(
+        "Пост 3977 не найден"
+    )
 
 
 
@@ -77,9 +136,9 @@ def parse_tournaments():
 
 
     lines = [
-        clean_line(line)
-        for line in text.split("\n")
-        if clean_line(line)
+        clean_line(x)
+        for x in text.split("\n")
+        if clean_line(x)
     ]
 
 
@@ -90,15 +149,10 @@ def parse_tournaments():
     current_month = None
 
 
-    i = 0
+    for line in lines:
 
 
-    while i < len(lines):
-
-        line = lines[i]
-
-
-        # дата
+        # ищем дату
 
         date = re.match(
             r"(\d+)\s+([а-яА-Я]+)",
@@ -107,6 +161,7 @@ def parse_tournaments():
 
 
         if date:
+
 
             current_day = int(
                 date.group(1)
@@ -118,12 +173,11 @@ def parse_tournaments():
             )
 
 
-            i += 1
             continue
 
 
 
-        # турнир
+        # ищем время
 
         tournament = re.match(
             r"•\s*(\d{1,2}:\d{2})\s+(.*)",
@@ -136,10 +190,11 @@ def parse_tournaments():
 
             time = tournament.group(1)
 
+
             title = tournament.group(2)
 
 
-            # убираем markdown ссылки
+            # удаляем markdown ссылки
             title = re.sub(
                 r"\[([^\]]+)\]\([^)]+\)",
                 r"\1",
@@ -157,7 +212,14 @@ def parse_tournaments():
             )
 
 
-        i += 1
+    print(
+        "========== ВСЕ ТУРНИРЫ =========="
+    )
+
+
+    for tournament in tournaments:
+
+        print(tournament)
 
 
     return tournaments
@@ -173,6 +235,7 @@ def today_tournaments():
 
 
     for tournament in parse_tournaments():
+
 
         if (
             tournament["day"] == today.day
@@ -197,5 +260,4 @@ def today_tournaments():
 
 if __name__ == "__main__":
 
-    for t in today_tournaments():
-        print(t)
+    today_tournaments()
