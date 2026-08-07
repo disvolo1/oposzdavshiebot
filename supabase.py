@@ -1,6 +1,5 @@
 import os
 from dotenv import load_dotenv
-
 from supabase import create_client, Client
 
 
@@ -17,43 +16,27 @@ supabase: Client = create_client(
 )
 
 
-def get_player(player_id: int):
-    """
-    Получить игрока по Telegram ID
-    """
-
-    response = (
-        supabase
-        .table("players")
-        .select("*")
-        .eq("telegram_id", player_id)
-        .execute()
-    )
-
-    return response.data
-
-
-def set_player_late(
-    player_id: int,
-    reason: str
+def save_late_request(
+    telegram_id: int,
+    username: str,
+    name: str,
+    message: str
 ):
     """
-    Отметить игрока как опоздавшего
+    Сохраняем заявку об опоздании
     """
+
+    data = {
+        "telegram_id": telegram_id,
+        "username": username,
+        "name": name,
+        "message": message
+    }
 
     response = (
         supabase
-        .table("players")
-        .update(
-            {
-                "is_late": True,
-                "late_reason": reason
-            }
-        )
-        .eq(
-            "telegram_id",
-            player_id
-        )
+        .table("late_requests")
+        .insert(data)
         .execute()
     )
 
@@ -62,43 +45,15 @@ def set_player_late(
 
 def get_active_tournament():
     """
-    Получить текущий активный турнир
+    Получаем текущий турнир
     """
 
     response = (
         supabase
         .table("tournaments")
         .select("*")
-        .eq(
-            "status",
-            "active"
-        )
+        .eq("status", "active")
         .limit(1)
-        .execute()
-    )
-
-    return response.data
-
-
-def add_late_request(
-    telegram_id: int,
-    username: str,
-    message: str
-):
-    """
-    Сохранить заявку об опоздании
-    """
-
-    response = (
-        supabase
-        .table("late_requests")
-        .insert(
-            {
-                "telegram_id": telegram_id,
-                "username": username,
-                "message": message
-            }
-        )
         .execute()
     )
 
