@@ -1,6 +1,10 @@
+import os
+
 from supabase import create_client, Client
 
-from config import SUPABASE_URL, SUPABASE_KEY
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 
 supabase: Client = create_client(
@@ -9,20 +13,16 @@ supabase: Client = create_client(
 )
 
 
-def save_late_request(
-    telegram_id: int,
+async def save_late_request(
+    user_id: int,
     username: str,
-    name: str,
     message: str
 ):
-
     data = {
-        "telegram_id": telegram_id,
+        "user_id": user_id,
         "username": username,
-        "name": name,
         "message": message
     }
-
 
     response = (
         supabase
@@ -31,5 +31,4 @@ def save_late_request(
         .execute()
     )
 
-
-    return response.data
+    return response
