@@ -1,34 +1,24 @@
 import os
-
+from dotenv import load_dotenv
 from supabase import create_client, Client
 
+load_dotenv()
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+url = os.getenv("SUPABASE_URL")
+key = os.getenv("SUPABASE_KEY")
 
-
-supabase: Client = create_client(
-    SUPABASE_URL,
-    SUPABASE_KEY
-)
+supabase: Client = create_client(url, key)
 
 
 async def save_late_request(
     user_id: int,
     username: str,
-    message: str
+    text: str
 ):
     data = {
         "user_id": user_id,
         "username": username,
-        "message": message
+        "message": text
     }
 
-    response = (
-        supabase
-        .table("late_requests")
-        .insert(data)
-        .execute()
-    )
-
-    return response
+    supabase.table("late_requests").insert(data).execute()
