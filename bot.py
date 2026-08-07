@@ -91,12 +91,34 @@ async def start_handler(
     )
 
 
-    await message.answer(
+    msg = await message.answer(
         "🏓 Привет!\n\n"
         "Это бот для опаздывающих на турниры пингтаблет.\n\n"
         "Если ты опаздываешь на турнир — нажми кнопку:",
         reply_markup=keyboard
     )
+
+
+    # закрепляем приветствие
+
+    try:
+
+        await bot.pin_chat_message(
+            chat_id=message.chat.id,
+            message_id=msg.message_id,
+            disable_notification=True
+        )
+
+        print(
+            "ПРИВЕТСТВИЕ ЗАКРЕПЛЕНО"
+        )
+
+    except Exception as e:
+
+        print(
+            "ОШИБКА ЗАКРЕПЛЕНИЯ:",
+            e
+        )
 
 
 
@@ -174,7 +196,9 @@ async def tournament_selected(
 
 
     try:
+
         await callback.message.delete()
+
     except:
 
         pass
@@ -194,12 +218,6 @@ async def tournament_selected(
 
     tournament_name = clean_text(
         f"{tournament['time']} • {tournament['title']}"
-    )
-
-
-    print(
-        "ВЫБРАН ТУРНИР:",
-        tournament_name
     )
 
 
@@ -225,7 +243,7 @@ async def tournament_selected(
 
 
 # ==========================
-# ПОЛУЧЕНИЕ НИКА
+# НИК
 # ==========================
 
 @dp.message(
@@ -238,8 +256,6 @@ async def nickname_handler(
 
     data = await state.get_data()
 
-
-    # удаляем "Напишите свой ник"
 
     try:
 
@@ -255,8 +271,6 @@ async def nickname_handler(
         pass
 
 
-
-    # удаляем сообщение игрока
 
     try:
 
@@ -277,17 +291,6 @@ async def nickname_handler(
         "tournament"
     )
 
-
-    print(
-        "НИК:",
-        nickname
-    )
-
-
-    print(
-        "ТУРНИР:",
-        tournament
-    )
 
 
     try:
@@ -344,15 +347,10 @@ async def nickname_handler(
                 )
 
 
-                print(
-                    "АДМИН СООБЩЕНИЕ ОБНОВЛЕНО"
-                )
-
-
             except Exception as e:
 
                 print(
-                    "ОШИБКА UPDATE:",
+                    "Ошибка обновления:",
                     e
                 )
 
@@ -370,12 +368,6 @@ async def nickname_handler(
 
             await save_admin_message(
                 tournament,
-                msg.message_id
-            )
-
-
-            print(
-                "АДМИН СООБЩЕНИЕ СОЗДАНО:",
                 msg.message_id
             )
 
