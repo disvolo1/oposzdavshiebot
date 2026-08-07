@@ -54,22 +54,10 @@ def load_post():
     )
 
 
-    print(
-        "Сообщений найдено:",
-        len(messages)
-    )
-
-
     for message in messages:
 
         data_post = message.get(
             "data-post"
-        )
-
-
-        print(
-            "POST:",
-            data_post
         )
 
 
@@ -87,7 +75,6 @@ def load_post():
 
 
             if not text_block:
-
                 raise Exception(
                     "Текст поста не найден"
                 )
@@ -148,56 +135,36 @@ def parse_tournaments():
     current_day = None
     current_month = None
 
-
-    for line in lines:
-
-
-        # ищем дату
-
-        date = re.match(
-            r"(\d+)\s+([а-яА-Я]+)",
-            line
-        )
+    current_time = None
+    current_title = []
 
 
-        if date:
+
+    def save_current():
+
+        nonlocal current_time, current_title
 
 
-            current_day = int(
-                date.group(1)
+        if (
+            current_day
+            and
+            current_month
+            and
+            current_time
+            and
+            current_title
+        ):
+
+            title = " ".join(
+                current_title
             )
 
 
-            current_month = MONTHS.get(
-                date.group(2).lower()
-            )
+            # убираем лишние пробелы
 
-
-            continue
-
-
-
-        # ищем время
-
-        tournament = re.match(
-            r"•\s*(\d{1,2}:\d{2})\s+(.*)",
-            line
-        )
-
-
-        if tournament and current_day:
-
-
-            time = tournament.group(1)
-
-
-            title = tournament.group(2)
-
-
-            # удаляем markdown ссылки
             title = re.sub(
-                r"\[([^\]]+)\]\([^)]+\)",
-                r"\1",
+                r"\s+",
+                " ",
                 title
             )
 
@@ -206,10 +173,81 @@ def parse_tournaments():
                 {
                     "day": current_day,
                     "month": current_month,
-                    "time": time,
+                    "time": current_time,
                     "title": title
                 }
             )
+
+
+        current_time = None
+        current_title = []
+
+
+
+    for line in lines:
+
+
+        # дата
+
+        date_match = re.match(
+            r"(\d+)\s+([а-яА-Я]+)",
+            line
+        )
+
+
+        if date_match:
+
+
+            save_current()
+
+
+            current_day = int(
+                date_match.group(1)
+            )
+
+
+            current_month = MONTHS.get(
+                date_match.group(2).lower()
+            )
+
+
+            continue
+
+
+
+        # время
+
+        time_match = re.match(
+            r"•?\s*(\d{1,2}:\d{2})",
+            line
+        )
+
+
+        if time_match:
+
+
+            save_current()
+
+
+            current_time = time_match.group(1)
+
+
+            continue
+
+
+
+        # текст турнира
+
+        if current_time:
+
+            current_title.append(
+                line
+            )
+
+
+
+    save_current()
+
 
 
     print(
@@ -234,7 +272,10 @@ def today_tournaments():
     result = []
 
 
-    for tournament in parse_tournaments():
+    tournaments = parse_tournaments()
+
+
+    for tournament in tournaments:
 
 
         if (
