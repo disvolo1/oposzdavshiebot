@@ -5,13 +5,14 @@ from aiogram.types import Message
 from aiogram.enums import ParseMode
 
 from config import BOT_TOKEN, ADMIN_IDS
-from supabase import save_late_request
+from database import save_late_request
 
 
 bot = Bot(
     token=BOT_TOKEN,
     parse_mode=ParseMode.HTML
 )
+
 
 dp = Dispatcher()
 
@@ -21,12 +22,13 @@ START_TEXT = """
 
 Это бот для опоздавших игроков.
 
-Если ты опаздываешь на турнир — отправь сообщение:
+Если ты опаздываешь на турнир — напиши:
+
+• сколько минут задерживаешься
+• причину
 
 Например:
 <i>Буду через 10 минут, пробки</i>
-
-Администратор получит уведомление и решит вопрос с твоим участием.
 """
 
 
@@ -51,13 +53,19 @@ async def late_request(message: Message):
         else "нет username"
     )
 
+
     name = message.from_user.full_name
 
-    text = message.text or "Отправлено медиа"
+
+    text = (
+        message.text
+        if message.text
+        else "медиа-сообщение"
+    )
 
 
-    # сохраняем в Supabase
     try:
+
         save_late_request(
             telegram_id=message.from_user.id,
             username=username,
@@ -65,15 +73,17 @@ async def late_request(message: Message):
             message=text
         )
 
+
     except Exception as e:
+
         print(
-            "Supabase error:",
+            "Database error:",
             e
         )
 
 
-    admin_message = f"""
-🚨 <b>НОВОЕ ОПОЗДАНИЕ</b>
+    admin_text = f"""
+🚨 <b>ОПОЗДАНИЕ</b>
 
 👤 Игрок:
 {name}
@@ -89,26 +99,28 @@ async def late_request(message: Message):
 """
 
 
-    # отправляем администраторам
     for admin_id in ADMIN_IDS:
 
         try:
+
             await bot.send_message(
                 admin_id,
-                admin_message
+                admin_text
             )
 
         except Exception as e:
+
             print(
-                "Admin send error:",
+                "Admin error:",
                 e
             )
 
 
     await message.answer(
-        "✅ Сообщение отправлено организаторам.\n"
-        "Ожидай решения по турниру 🏓"
+        "✅ Организатор получил уведомление.\n"
+        "Ожидай решения 🏓"
     )
+
 
 
 async def main():
@@ -117,10 +129,12 @@ async def main():
         "PinkTablet late bot started"
     )
 
+
     await dp.start_polling(
         bot
     )
 
 
 if __name__ == "__main__":
+
     asyncio.run(main())
