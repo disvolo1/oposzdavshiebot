@@ -52,7 +52,7 @@ class LateState(StatesGroup):
 
 
 # ==========================
-# ЧИСТКА ТЕКСТА
+# CLEAN
 # ==========================
 
 def clean_text(text):
@@ -100,7 +100,7 @@ async def start_handler(
 
 
 # ==========================
-# НАЖАЛИ ОПАЗДЫВАЮ
+# НАЖАЛИ Я ОПАЗДЫВАЮ
 # ==========================
 
 @dp.callback_query(
@@ -117,7 +117,7 @@ async def late_handler(
 
 
     print(
-        "ТУРНИРЫ ДЛЯ ВЫБОРА:",
+        "ТУРНИРЫ:",
         tournaments
     )
 
@@ -137,16 +137,18 @@ async def late_handler(
 
     for index, tournament in enumerate(tournaments):
 
-        text = (
-            f"🕒 {tournament['time']} • "
-            f"{tournament['title']}"
+        title = clean_text(
+            tournament["title"]
         )
 
 
         buttons.append(
             [
                 InlineKeyboardButton(
-                    text=text[:60],
+                    text=(
+                        f"🕒 {tournament['time']} • "
+                        f"{title}"
+                    )[:60],
                     callback_data=f"tour_{index}"
                 )
             ]
@@ -163,7 +165,7 @@ async def late_handler(
 
 
 # ==========================
-# ВЫБРАЛ ТУРНИР
+# ВЫБОР ТУРНИРА
 # ==========================
 
 @dp.callback_query(
@@ -175,6 +177,16 @@ async def tournament_selected(
 ):
 
     await callback.answer()
+
+
+    # удаляем кнопки турниров
+
+    try:
+        await callback.message.delete()
+
+    except Exception:
+        pass
+
 
 
     index = int(
@@ -194,7 +206,7 @@ async def tournament_selected(
 
 
     print(
-        "ВЫБРАН ТУРНИР:",
+        "ВЫБРАН:",
         tournament_name
     )
 
@@ -209,19 +221,19 @@ async def tournament_selected(
     )
 
 
-    print(
-        "СОСТОЯНИЕ УСТАНОВЛЕНО"
+    msg = await callback.message.answer(
+        "Напишите свой ник 👇"
     )
 
 
-    await callback.message.answer(
-        "Напишите свой ник 👇"
+    await state.update_data(
+        nickname_message_id=msg.message_id
     )
 
 
 
 # ==========================
-# ПОЛУЧИЛ НИК
+# НИК
 # ==========================
 
 @dp.message(
@@ -232,29 +244,36 @@ async def nickname_handler(
     state: FSMContext
 ):
 
-    print(
-        "ПОЛУЧИЛ НИК:",
-        message.text
-    )
-
 
     data = await state.get_data()
 
 
-    tournament = data.get(
-        "tournament"
-    )
+    # удаляем сообщение "напишите ник"
 
+    try:
 
-    if not tournament:
-
-        await message.answer(
-            "Ошибка. Выберите турнир заново."
+        await bot.delete_message(
+            chat_id=message.chat.id,
+            message_id=data.get(
+                "nickname_message_id"
+            )
         )
 
-        await state.clear()
+    except Exception:
 
-        return
+        pass
+
+
+
+    # удаляем сообщение пользователя
+
+    try:
+
+        await message.delete()
+
+    except Exception:
+
+        pass
 
 
 
@@ -263,7 +282,25 @@ async def nickname_handler(
     )
 
 
+    tournament = data.get(
+        "tournament"
+    )
+
+
+    print(
+        "НИК:",
+        username
+    )
+
+
+    print(
+        "ТУРНИР:",
+        tournament
+    )
+
+
     try:
+
 
         await save_late_request(
             user_id=message.from_user.id,
@@ -272,9 +309,11 @@ async def nickname_handler(
         )
 
 
+
         users = await get_late_users(
             tournament
         )
+
 
 
         admin_text = (
@@ -287,13 +326,15 @@ async def nickname_handler(
         for user in users:
 
             admin_text += (
-                f"🟡 {user}\n"
+                f"{user}\n"
             )
+
 
 
         old_message_id = await get_admin_message(
             tournament
         )
+
 
 
         if old_message_id:
@@ -309,14 +350,14 @@ async def nickname_handler(
 
 
                 print(
-                    "СООБЩЕНИЕ АДМИНА ОБНОВЛЕНО"
+                    "ОБНОВИЛ СООБЩЕНИЕ"
                 )
 
 
             except Exception as e:
 
                 print(
-                    "ОШИБКА EDIT:",
+                    "ОШИБКА ОБНОВЛЕНИЯ:",
                     e
                 )
 
@@ -338,23 +379,21 @@ async def nickname_handler(
 
 
             print(
-                "НОВОЕ СООБЩЕНИЕ АДМИНУ:",
+                "СОЗДАЛ СООБЩЕНИЕ:",
                 msg.message_id
             )
 
 
 
-        await message.answer(
-            "✅ Спасибо!\n\n"
-            "Организатор получил информацию 🙌"
-        )
+        await state.clear()
+
 
 
     except Exception as e:
 
 
         print(
-            "ОШИБКА В NICK HANDLER:",
+            "ОШИБКА:",
             e
         )
 
@@ -362,12 +401,6 @@ async def nickname_handler(
         await message.answer(
             "❌ Ошибка. Попробуйте ещё раз."
         )
-
-
-
-    finally:
-
-        await state.clear()
 
 
 
