@@ -1,13 +1,20 @@
 import asyncio
 import os
+import re
 
 from dotenv import load_dotenv
 
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import CommandStart
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import (
+    InlineKeyboardMarkup,
+    InlineKeyboardButton
+)
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.state import (
+    State,
+    StatesGroup
+)
 
 from parser import today_tournaments
 
@@ -22,27 +29,21 @@ from database import (
 load_dotenv()
 
 
-BOT_TOKEN = os.getenv(
-    "BOT_TOKEN"
-)
-
-
-ADMIN_ID = int(
-    os.getenv("ADMIN_ID")
-)
-
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
 
 bot = Bot(
     token=BOT_TOKEN
 )
 
-
 dp = Dispatcher()
 
 
 
-# состояния
+# ==========================
+# FSM
+# ==========================
 
 class LateState(StatesGroup):
 
@@ -50,7 +51,27 @@ class LateState(StatesGroup):
 
 
 
-# старт
+# ==========================
+# ЧИСТКА ТЕКСТА
+# ==========================
+
+def clean_text(text):
+
+    text = re.sub(
+        r"[\u200b\u200c\u200d\u2060\ufeff]",
+        "",
+        text
+    )
+
+    return " ".join(
+        text.split()
+    ).strip()
+
+
+
+# ==========================
+# START
+# ==========================
 
 @dp.message(CommandStart())
 async def start_handler(
@@ -78,7 +99,9 @@ async def start_handler(
 
 
 
-# нажали опаздываю
+# ==========================
+# НАЖАЛИ ОПАЗДЫВАЮ
+# ==========================
 
 @dp.callback_query(
     lambda c: c.data == "late"
@@ -93,8 +116,13 @@ async def late_handler(
     tournaments = today_tournaments()
 
 
-    if not tournaments:
+    print(
+        "ТУРНИРЫ ДЛЯ ВЫБОРА:",
+        tournaments
+    )
 
+
+    if not tournaments:
 
         await callback.message.answer(
             "Сегодня турниров не найдено 🙁"
@@ -109,8 +137,7 @@ async def late_handler(
 
     for index, tournament in enumerate(tournaments):
 
-
-        title = (
+        text = (
             f"🕒 {tournament['time']} • "
             f"{tournament['title']}"
         )
@@ -119,7 +146,7 @@ async def late_handler(
         buttons.append(
             [
                 InlineKeyboardButton(
-                    text=title[:60],
+                    text=text[:60],
                     callback_data=f"tour_{index}"
                 )
             ]
@@ -135,7 +162,9 @@ async def late_handler(
 
 
 
-# выбран турнир
+# ==========================
+# ВЫБРАЛ ТУРНИР
+# ==========================
 
 @dp.callback_query(
     lambda c: c.data.startswith("tour_")
@@ -159,9 +188,14 @@ async def tournament_selected(
     tournament = tournaments[index]
 
 
-    tournament_name = (
-        f"{tournament['time']} • "
-        f"{tournament['title']}"
+    tournament_name = clean_text(
+        f"{tournament['time']} • {tournament['title']}"
+    )
+
+
+    print(
+        "ВЫБРАН ТУРНИР:",
+        tournament_name
     )
 
 
@@ -175,13 +209,20 @@ async def tournament_selected(
     )
 
 
+    print(
+        "СОСТОЯНИЕ УСТАНОВЛЕНО"
+    )
+
+
     await callback.message.answer(
         "Напишите свой ник 👇"
     )
 
 
 
-# ник пользователя
+# ==========================
+# ПОЛУЧИЛ НИК
+# ==========================
 
 @dp.message(
     LateState.waiting_nickname
@@ -191,115 +232,148 @@ async def nickname_handler(
     state: FSMContext
 ):
 
+    print(
+        "ПОЛУЧИЛ НИК:",
+        message.text
+    )
+
 
     data = await state.get_data()
 
 
-    tournament = data[
+    tournament = data.get(
         "tournament"
-    ]
-
-
-    username = message.text.strip()
-
-
-
-    await save_late_request(
-
-        user_id=message.from_user.id,
-
-        username=username,
-
-        tournament=tournament
-
     )
 
 
+    if not tournament:
 
-    users = await get_late_users(
-        tournament
+        await message.answer(
+            "Ошибка. Выберите турнир заново."
+        )
+
+        await state.clear()
+
+        return
+
+
+
+    username = clean_text(
+        message.text
     )
 
 
-    admin_text = (
-        f"🏓 Опоздание\n\n"
-        f"{tournament}\n\n"
-        f"Участники:\n\n"
-    )
+    try:
 
-
-    for user in users:
-
-        admin_text += (
-            f"🟡 {user}\n"
+        await save_late_request(
+            user_id=message.from_user.id,
+            username=username,
+            tournament=tournament
         )
 
 
-
-    old_message = await get_admin_message(
-        tournament
-    )
-
+        users = await get_late_users(
+            tournament
+        )
 
 
-    if old_message:
+        admin_text = (
+            f"🏓 Опоздание\n\n"
+            f"{tournament}\n\n"
+            f"Участники:\n\n"
+        )
 
 
-        try:
+        for user in users:
 
-            await bot.edit_message_text(
-
-                chat_id=ADMIN_ID,
-
-                message_id=old_message,
-
-                text=admin_text
-
+            admin_text += (
+                f"🟡 {user}\n"
             )
 
 
-        except Exception as e:
+        old_message_id = await get_admin_message(
+            tournament
+        )
+
+
+        if old_message_id:
+
+
+            try:
+
+                await bot.edit_message_text(
+                    chat_id=ADMIN_ID,
+                    message_id=old_message_id,
+                    text=admin_text
+                )
+
+
+                print(
+                    "СООБЩЕНИЕ АДМИНА ОБНОВЛЕНО"
+                )
+
+
+            except Exception as e:
+
+                print(
+                    "ОШИБКА EDIT:",
+                    e
+                )
+
+
+
+        else:
+
+
+            msg = await bot.send_message(
+                chat_id=ADMIN_ID,
+                text=admin_text
+            )
+
+
+            await save_admin_message(
+                tournament,
+                msg.message_id
+            )
+
 
             print(
-                "Ошибка обновления:",
-                e
+                "НОВОЕ СООБЩЕНИЕ АДМИНУ:",
+                msg.message_id
             )
 
 
 
-    else:
-
-
-        msg = await bot.send_message(
-
-            chat_id=ADMIN_ID,
-
-            text=admin_text
-
+        await message.answer(
+            "✅ Спасибо!\n\n"
+            "Организатор получил информацию 🙌"
         )
 
 
-        await save_admin_message(
+    except Exception as e:
 
-            tournament,
 
-            msg.message_id
+        print(
+            "ОШИБКА В NICK HANDLER:",
+            e
+        )
 
+
+        await message.answer(
+            "❌ Ошибка. Попробуйте ещё раз."
         )
 
 
 
-    await message.answer(
-        "✅ Спасибо!\n\n"
-        "Организатор получил информацию 🙌"
-    )
+    finally:
 
-
-    await state.clear()
+        await state.clear()
 
 
 
-# запуск
+# ==========================
+# RUN
+# ==========================
 
 async def main():
 
