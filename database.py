@@ -78,7 +78,9 @@ async def get_late_users(
     result = (
         supabase
         .table("late_requests")
-        .select("username")
+        .select(
+            "username, user_id"
+        )
         .eq(
             "tournament",
             tournament
@@ -93,7 +95,10 @@ async def get_late_users(
     for row in result.data:
 
         users.append(
-            row["username"]
+            {
+                "username": row["username"],
+                "user_id": row["user_id"]
+            }
         )
 
 
@@ -118,7 +123,9 @@ async def get_admin_message(
     result = (
         supabase
         .table("late_admin_messages")
-        .select("message_id")
+        .select(
+            "message_id"
+        )
         .eq(
             "tournament",
             tournament
@@ -129,22 +136,9 @@ async def get_admin_message(
 
     if result.data:
 
-        message_id = result.data[0][
+        return result.data[0][
             "message_id"
         ]
-
-        print(
-            "НАЙДЕНО СООБЩЕНИЕ:",
-            message_id
-        )
-
-
-        return message_id
-
-
-    print(
-        "СООБЩЕНИЕ НЕ НАЙДЕНО"
-    )
 
 
     return None
@@ -160,13 +154,6 @@ async def save_admin_message(
     message_id
 ):
 
-    print(
-        "СОХРАНЯЮ MESSAGE:",
-        tournament,
-        message_id
-    )
-
-
     result = (
         supabase
         .table("late_admin_messages")
@@ -181,7 +168,7 @@ async def save_admin_message(
 
 
     print(
-        "MESSAGE СОХРАНЕН:",
+        "ADMIN MESSAGE SAVED:",
         result.data
     )
 
