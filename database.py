@@ -13,7 +13,7 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise Exception(
-        "Нет SUPABASE_URL или SUPABASE_KEY в .env"
+        "Нет SUPABASE_URL или SUPABASE_KEY"
     )
 
 
@@ -24,9 +24,9 @@ supabase = create_client(
 
 
 
-# =====================================================
-# СОХРАНЕНИЕ ОПАЗДАВШЕГО
-# =====================================================
+# =====================================
+# СОХРАНИТЬ ОПАЗДАВШЕГО
+# =====================================
 
 async def save_late_request(
     user_id,
@@ -35,7 +35,7 @@ async def save_late_request(
 ):
 
     print(
-        "ПЫТАЮСЬ СОХРАНИТЬ:",
+        "СОХРАНЕНИЕ:",
         user_id,
         username,
         tournament
@@ -43,174 +43,117 @@ async def save_late_request(
 
 
     data = {
-
         "user_id": user_id,
-
         "username": username,
-
         "tournament": tournament
-
     }
 
 
-    try:
-
-        result = (
-            supabase
-            .table("late_requests")
-            .insert(data)
-            .execute()
-        )
+    result = (
+        supabase
+        .table("late_requests")
+        .insert(data)
+        .execute()
+    )
 
 
-        print(
-            "SUPABASE СОХРАНИЛ:",
-            result.data
-        )
+    print(
+        "СОХРАНЕНО:",
+        result.data
+    )
 
 
-        return result.data
-
-
-    except Exception as e:
-
-        print(
-            "ОШИБКА SUPABASE SAVE:",
-            e
-        )
-
-        raise e
+    return result.data
 
 
 
-# =====================================================
-# ПОЛУЧИТЬ ВСЕХ ОПАЗДАВШИХ НА ТУРНИР
-# =====================================================
+# =====================================
+# ПОЛУЧИТЬ УЧАСТНИКОВ ТУРНИРА
+# =====================================
 
 async def get_late_users(
     tournament
 ):
 
-    print(
-        "ИЩУ УЧАСТНИКОВ:",
-        tournament
+    result = (
+        supabase
+        .table("late_requests")
+        .select("username")
+        .eq(
+            "tournament",
+            tournament
+        )
+        .execute()
     )
 
 
-    try:
+    users = []
 
-        result = (
-            supabase
-            .table("late_requests")
-            .select("username")
-            .eq(
-                "tournament",
-                tournament
-            )
-            .execute()
+
+    for row in result.data:
+
+        users.append(
+            row["username"]
         )
 
 
-        users = []
+    print(
+        "УЧАСТНИКИ:",
+        users
+    )
 
 
-        for row in result.data:
-
-            users.append(
-                row["username"]
-            )
-
-
-        print(
-            "НАЙДЕНЫ:",
-            users
-        )
-
-
-        return users
-
-
-    except Exception as e:
-
-        print(
-            "ОШИБКА SUPABASE GET USERS:",
-            e
-        )
-
-        raise e
+    return users
 
 
 
-# =====================================================
-# ПОЛУЧИТЬ ID СООБЩЕНИЯ АДМИНА
-# =====================================================
+# =====================================
+# НАЙТИ СООБЩЕНИЕ АДМИНА
+# =====================================
 
 async def get_admin_message(
     tournament
 ):
 
-    print(
-        "ИЩУ MESSAGE ID:",
-        tournament
+    result = (
+        supabase
+        .table("late_admin_messages")
+        .select("message_id")
+        .eq(
+            "tournament",
+            tournament
+        )
+        .execute()
     )
 
 
-    try:
+    if result.data:
 
-        result = (
-            supabase
-            .table("late_requests")
-            .select(
-                "admin_message_id"
-            )
-            .eq(
-                "tournament",
-                tournament
-            )
-            .not_.is_(
-                "admin_message_id",
-                "null"
-            )
-            .limit(1)
-            .execute()
-        )
-
-
-        if result.data:
-
-            message_id = result.data[0][
-                "admin_message_id"
-            ]
-
-
-            print(
-                "MESSAGE ID:",
-                message_id
-            )
-
-
-            return message_id
-
-
-
-        return None
-
-
-
-    except Exception as e:
+        message_id = result.data[0][
+            "message_id"
+        ]
 
         print(
-            "ОШИБКА SUPABASE MESSAGE:",
-            e
+            "НАЙДЕНО СООБЩЕНИЕ:",
+            message_id
         )
 
-        raise e
+
+        return message_id
+
+
+    print(
+        "СООБЩЕНИЕ НЕ НАЙДЕНО"
+    )
+
+
+    return None
 
 
 
-# =====================================================
-# СОХРАНИТЬ ID СООБЩЕНИЯ АДМИНА
-# =====================================================
+# =====================================
+# СОХРАНИТЬ СООБЩЕНИЕ АДМИНА
+# =====================================
 
 async def save_admin_message(
     tournament,
@@ -218,44 +161,29 @@ async def save_admin_message(
 ):
 
     print(
-        "СОХРАНЯЮ MESSAGE ID:",
+        "СОХРАНЯЮ MESSAGE:",
         tournament,
         message_id
     )
 
 
-    try:
-
-        result = (
-            supabase
-            .table("late_requests")
-            .update(
-                {
-                    "admin_message_id": message_id
-                }
-            )
-            .eq(
-                "tournament",
-                tournament
-            )
-            .execute()
+    result = (
+        supabase
+        .table("late_admin_messages")
+        .insert(
+            {
+                "tournament": tournament,
+                "message_id": message_id
+            }
         )
+        .execute()
+    )
 
 
-        print(
-            "MESSAGE ID СОХРАНЕН:",
-            result.data
-        )
+    print(
+        "MESSAGE СОХРАНЕН:",
+        result.data
+    )
 
 
-        return result.data
-
-
-    except Exception as e:
-
-        print(
-            "ОШИБКА UPDATE MESSAGE:",
-            e
-        )
-
-        raise e
+    return result.data
